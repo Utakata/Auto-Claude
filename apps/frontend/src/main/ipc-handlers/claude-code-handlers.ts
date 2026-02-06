@@ -17,7 +17,7 @@ import { promisify } from 'util';
 import { IPC_CHANNELS, DEFAULT_APP_SETTINGS } from '../../shared/constants';
 import type { IPCResult } from '../../shared/types';
 import type { ClaudeCodeVersionInfo, ClaudeInstallationList, ClaudeInstallationInfo } from '../../shared/types/cli';
-import { getToolInfo, configureTools, sortNvmVersionDirs, getClaudeDetectionPaths, type ExecFileAsyncOptionsWithVerbatim } from '../cli-tool-manager';
+import { getToolInfo, getToolPath, configureTools, sortNvmVersionDirs, getClaudeDetectionPaths, type ExecFileAsyncOptionsWithVerbatim } from '../cli-tool-manager';
 import { readSettingsFile, writeSettingsFile } from '../settings-utils';
 import { isSecurePath } from '../utils/windows-paths';
 import { isWindows, isMacOS, isLinux } from '../platform';
@@ -606,12 +606,43 @@ export async function openTerminalWithCommand(command: string): Promise<void> {
       } else if (terminalId === 'gitbash') {
         // Git Bash - use the passed command (escaped for bash context)
         const escapedBashCommand = escapeGitBashCommand(command);
-        const gitBashPaths = [
-          'C:\\Program Files\\Git\\git-bash.exe',
-          'C:\\Program Files (x86)\\Git\\git-bash.exe',
-        ];
-        const gitBashPath = gitBashPaths.find(p => existsSync(p));
+
+        // Dynamic detection: Find git-bash.exe relative to git.exe
+        // This handles D: drive or custom install locations
+        let gitBashPath: string | null = null;
+
+        try {
+          const gitPath = getToolPath('git');
+          if (gitPath && gitPath !== 'git') {
+            // Found specific git path (e.g. D:\Apps\Git\cmd\git.exe)
+            // git-bash.exe is usually in the parent directory of cmd/bin, or in the root
+            const gitDir = path.dirname(gitPath); // ...\Git\cmd
+            const gitRoot = path.dirname(gitDir); // ...\Git
+
+            const candidates = [
+              path.join(gitRoot, 'git-bash.exe'),
+              path.join(gitRoot, 'bin', 'bash.exe'), // Fallback to raw bash if git-bash.exe missing
+              path.join(gitDir, 'git-bash.exe')
+            ];
+
+            gitBashPath = candidates.find(p => existsSync(p)) || null;
+          }
+        } catch (e) {
+          console.warn('[Claude Code] Failed to derive git-bash path from git tool:', e);
+        }
+
+        // Fallback to standard paths if dynamic detection failed
+        if (!gitBashPath) {
+          const standardPaths = [
+            'C:\\Program Files\\Git\\git-bash.exe',
+            'C:\\Program Files (x86)\\Git\\git-bash.exe',
+            path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Git', 'git-bash.exe')
+          ];
+          gitBashPath = standardPaths.find(p => existsSync(p)) || null;
+        }
+
         if (gitBashPath) {
+          console.warn('[Claude Code] Using Git Bash at:', gitBashPath);
           await spawnWindowsTerminal(gitBashPath, ['-c', escapedBashCommand]);
         } else {
           throw new Error('Git Bash not found');

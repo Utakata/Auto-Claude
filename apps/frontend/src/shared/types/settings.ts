@@ -84,6 +84,8 @@ export type SupportedIDE =
   // Archived/Legacy (still in use)
   | 'atom'             // Atom (archived but still used)
   | 'brackets'         // Brackets (archived)
+  // Google IDEs
+  | 'antigravity'      // Google Antigravity
   // Custom option
   | 'custom';
 

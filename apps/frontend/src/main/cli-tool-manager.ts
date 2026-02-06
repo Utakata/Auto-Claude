@@ -580,6 +580,7 @@ class CLIToolManager {
     // 4. Windows-specific detection using 'where' command (most reliable for custom installs)
     if (isWindows()) {
       // First try 'where' command - finds git regardless of installation location
+      // IMPORTANT: where.exe might return multiple paths. validationGit will filter out invalid ones (like bash.exe)
       const whereGitPath = findWindowsExecutableViaWhere('git', '[Git]');
       if (whereGitPath) {
         const validation = this.validateGit(whereGitPath);
@@ -591,6 +592,8 @@ class CLIToolManager {
             source: 'system-path',
             message: `Using Windows Git: ${whereGitPath}`,
           };
+        } else {
+          console.warn(`[Git] 'where git' returned invalid path: ${whereGitPath} - ${validation.message}`);
         }
       }
 
@@ -1003,8 +1006,27 @@ class CLIToolManager {
         env: getAugmentedEnv(),
       }).trim();
 
+      // Strict validation: Require "git version" in output to distinguish from bash/sh
+      // Bash output: "GNU bash, version 4.4.23(1)-release..."
       const match = version.match(/git version (\d+\.\d+\.\d+)/);
-      const versionStr = match ? match[1] : version;
+
+      if (!match) {
+        // If "git version" is missing, it's likely not git (e.g. bash.exe)
+        // Check if output looks like bash to give specific error
+        if (version.includes('bash') || version.includes('sh')) {
+          return {
+            valid: false,
+            message: `Path points to shell (bash/sh), not git executable: ${version.split('\n')[0]}`,
+          };
+        }
+
+        return {
+          valid: false,
+          message: `Invalid git version output: ${version.split('\n')[0]}`,
+        };
+      }
+
+      const versionStr = match[1];
 
       return {
         valid: true,

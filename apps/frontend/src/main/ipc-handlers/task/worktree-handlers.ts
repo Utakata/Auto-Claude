@@ -630,6 +630,15 @@ const IDE_DETECTION: Partial<Record<SupportedIDE, { name: string; paths: Record<
     },
     commands: { darwin: 'lapce', win32: 'lapce', linux: 'lapce' }
   },
+  antigravity: {
+    name: 'Google Antigravity',
+    paths: {
+      darwin: [],
+      win32: [],
+      linux: []
+    },
+    commands: { darwin: 'antigravity', win32: 'antigravity', linux: 'antigravity' }
+  },
   custom: {
     name: 'Custom IDE',
     paths: { darwin: [], win32: [], linux: [] },
@@ -704,7 +713,15 @@ const TERMINAL_DETECTION: Partial<Record<SupportedTerminal, { name: string; path
   },
   gitbash: {
     name: 'Git Bash',
-    paths: { darwin: [], win32: ['C:\\Program Files\\Git\\git-bash.exe'], linux: [] },
+    paths: {
+      darwin: [],
+      win32: [
+        'C:\\Program Files\\Git\\git-bash.exe',
+        'C:\\Program Files (x86)\\Git\\git-bash.exe',
+        '%LOCALAPPDATA%\\Programs\\Git\\git-bash.exe'
+      ],
+      linux: []
+    },
     commands: { darwin: [], win32: ['git-bash.exe', '--cd='], linux: [] }
   },
   // Linux Desktop Environment Terminals

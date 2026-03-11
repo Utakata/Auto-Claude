@@ -99,16 +99,17 @@ def create_patched_kuzu_driver(db: str = ":memory:", max_concurrent_queries: int
             # Create a sync connection for index creation
             conn = kuzu.Connection(self.db)
 
+            # Pre-compile regex for performance (used inside the loop)
+            # Format: CALL CREATE_FTS_INDEX('TableName', 'index_name', [...])
+            fts_index_re = re.compile(r"CREATE_FTS_INDEX\('([^']+)',\s*'([^']+)'")
+
             try:
                 for query in fts_queries:
                     try:
                         # Check if we need to drop existing index first
                         if delete_existing:
                             # Extract index name from query
-                            # Format: CALL CREATE_FTS_INDEX('TableName', 'index_name', [...])
-                            match = re.search(
-                                r"CREATE_FTS_INDEX\('([^']+)',\s*'([^']+)'", query
-                            )
+                            match = fts_index_re.search(query)
                             if match:
                                 table_name, index_name = match.groups()
                                 drop_query = f"CALL DROP_FTS_INDEX('{table_name}', '{index_name}')"
